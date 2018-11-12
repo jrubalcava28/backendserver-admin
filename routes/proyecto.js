@@ -1,46 +1,44 @@
 var express = require('express');
-var bcrypt = require('bcryptjs');
-var jwt = require('jsonwebtoken');
-
 var SEED = require('../config/config').SEED;
 
 var mdAutenticacion = require('../middlewares/autenticacion');
 
 var app = express();
 
-var Usuario = require('../models/usuario');
+var Proyecto = require('../models/proyecto');
 
 //===========================
-// Obtener todos los usuarios
+// Obtener todos los proyectos
 //===========================
 
 app.get('/', (req, res, next) => {
 
     var desde = req.query.desde || 0;
-
     desde = Number(desde);
 
-    Usuario.find({}, 'nombre email img role')
+    Proyecto.find({})
         .skip(desde)
         .limit(5)
+        .populate('usuario', 'nombre email')
         .exec(
-            (err, usuarios) => {
+            (err, proyectos) => {
 
                 if (err) {
                     return res.status(500).json({
                         ok: false,
-                        mensaje: 'Error cargando usuario',
+                        mensaje: 'Error cargando proyectos',
                         errors: err
                     });
                 }
 
-                Usuario.count({}, (err, conteo) => {
+                Proyecto.count({}, (err, conteo) => {
 
                     res.status(200).json({
                         ok: true,
-                        usuarios: usuarios,
+                        proyectos: proyectos,
                         total: conteo
                     });
+
                 })
 
 
@@ -52,51 +50,50 @@ app.get('/', (req, res, next) => {
 
 
 //=============================
-// Actualizar un usuario
+// Actualizar un proyecto
 //=============================
 app.put('/:id', mdAutenticacion.verificaToken, (req, res) => {
 
     var id = req.params.id;
     var body = req.body;
 
-    Usuario.findById(id, (err, usuario) => {
+    Proyecto.findById(id, (err, proyecto) => {
 
 
         if (err) {
             return res.status(500).json({
                 ok: false,
-                mensaje: 'Error al buscar usuario',
+                mensaje: 'Error al buscar proyecto',
                 errors: err
             });
         }
 
-        if (!usuario) {
+        if (!proyecto) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'El usuario con el id ' + id + ' no existe',
-                errors: { message: 'no existe un usuario con ese ID' }
+                mensaje: 'El proyecto con el id ' + id + ' no existe',
+                errors: { message: 'no existe un proyecto con ese ID' }
             });
         }
 
-        usuario.nombre = body.nombre;
-        usuario.email = body.email;
-        usuario.role = body.role;
+        proyecto.nombre = body.nombre;
+        proyecto.tipo = body.tipo;
+        proyecto.usuario = req.usuario._id;
 
-        usuario.save((err, usuarioGuardado) => {
+        proyecto.save((err, proyectoGuardado) => {
 
             if (err) {
                 return res.status(400).json({
                     ok: false,
-                    mensaje: 'Error al actualizar usuario',
+                    mensaje: 'Error al actualizar proyecto',
                     errors: err
                 });
             }
 
-            usuarioGuardado.password = ":)";
 
             res.status(200).json({
                 ok: true,
-                usuario: usuarioGuardado
+                proyecto: proyectoGuardado
             });
 
         });
@@ -109,34 +106,31 @@ app.put('/:id', mdAutenticacion.verificaToken, (req, res) => {
 
 
 //=============================
-// Creacion de un nuevo usuario
+// Creacion de un nuevo proyecto
 //=============================
 
 app.post('/', mdAutenticacion.verificaToken, (req, res) => {
 
     var body = req.body;
 
-    var usuario = new Usuario({
+    var proyecto = new Proyecto({
         nombre: body.nombre,
-        email: body.email,
-        password: bcrypt.hashSync(body.password, 10),
-        img: body.img,
-        role: body.role
+        tipo: body.tipo,
+        usuario: req.usuario._id
     });
 
-    usuario.save((err, usuarioGuardado) => {
+    proyecto.save((err, proyectoGuardado) => {
 
         if (err) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'Error crear usuario',
+                mensaje: 'Error crear proyecto',
                 errors: err
             });
         }
         res.status(201).json({
             ok: true,
-            usuario: usuarioGuardado,
-            usuariotoken: req.usuario
+            proyecto: proyectoGuardado
         });
 
     });
@@ -146,33 +140,33 @@ app.post('/', mdAutenticacion.verificaToken, (req, res) => {
 });
 
 //=============================
-// Borrar un usuario por el id
+// Borrar un proyecto por el id
 //=============================
 
 app.delete('/:id', mdAutenticacion.verificaToken, (req, res) => {
 
     var id = req.params.id;
-    Usuario.findByIdAndDelete(id, (err, usuarioBorrado) => {
+    Proyecto.findByIdAndDelete(id, (err, proyectoBorrado) => {
 
         if (err) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'Error al borrar  usuario',
+                mensaje: 'Error al borrar proyecto',
                 errors: err
             });
         }
 
-        if (!usuarioBorrado) {
+        if (!proyectoBorrado) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'No existe un usuario con ese ID',
-                errors: { message: 'No existe un usuario con ese ID' }
+                mensaje: 'No existe un proyecto con ese ID',
+                errors: { message: 'No existe un proyecto con ese ID' }
             });
         }
 
         res.status(200).json({
             ok: true,
-            usuario: usuarioBorrado
+            proyecto: proyectoBorrado
         });
 
 

@@ -1,44 +1,41 @@
 var express = require('express');
-var bcrypt = require('bcryptjs');
-var jwt = require('jsonwebtoken');
-
 var SEED = require('../config/config').SEED;
 
 var mdAutenticacion = require('../middlewares/autenticacion');
 
 var app = express();
 
-var Usuario = require('../models/usuario');
+var Tarea = require('../models/tarea');
 
 //===========================
-// Obtener todos los usuarios
+// Obtener todos los tareas
 //===========================
 
 app.get('/', (req, res, next) => {
 
     var desde = req.query.desde || 0;
-
     desde = Number(desde);
 
-    Usuario.find({}, 'nombre email img role')
+    Tarea.find({})
         .skip(desde)
         .limit(5)
+        .populate('usuario', 'usuario email')
+        .populate('proyecto')
         .exec(
-            (err, usuarios) => {
+            (err, tareas) => {
 
                 if (err) {
                     return res.status(500).json({
                         ok: false,
-                        mensaje: 'Error cargando usuario',
+                        mensaje: 'Error cargando tareas',
                         errors: err
                     });
                 }
 
-                Usuario.count({}, (err, conteo) => {
-
+                Tarea.count({}, (err, conteo) => {
                     res.status(200).json({
                         ok: true,
-                        usuarios: usuarios,
+                        tareas: tareas,
                         total: conteo
                     });
                 })
@@ -52,51 +49,51 @@ app.get('/', (req, res, next) => {
 
 
 //=============================
-// Actualizar un usuario
+// Actualizar un tarea
 //=============================
 app.put('/:id', mdAutenticacion.verificaToken, (req, res) => {
 
     var id = req.params.id;
     var body = req.body;
 
-    Usuario.findById(id, (err, usuario) => {
+    Tarea.findById(id, (err, tarea) => {
 
 
         if (err) {
             return res.status(500).json({
                 ok: false,
-                mensaje: 'Error al buscar usuario',
+                mensaje: 'Error al buscar tarea',
                 errors: err
             });
         }
 
-        if (!usuario) {
+        if (!tarea) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'El usuario con el id ' + id + ' no existe',
-                errors: { message: 'no existe un usuario con ese ID' }
+                mensaje: 'El tarea con el id ' + id + ' no existe',
+                errors: { message: 'no existe un tarea con ese ID' }
             });
         }
 
-        usuario.nombre = body.nombre;
-        usuario.email = body.email;
-        usuario.role = body.role;
+        tarea.nombre = body.nombre;
+        tarea.descripcion = body.descripcion;
+        tarea.usuario = req.usuario._id;
+        tarea.proyecto = body.proyecto;
 
-        usuario.save((err, usuarioGuardado) => {
+        tarea.save((err, tareaGuardado) => {
 
             if (err) {
                 return res.status(400).json({
                     ok: false,
-                    mensaje: 'Error al actualizar usuario',
+                    mensaje: 'Error al actualizar tarea',
                     errors: err
                 });
             }
 
-            usuarioGuardado.password = ":)";
 
             res.status(200).json({
                 ok: true,
-                usuario: usuarioGuardado
+                tarea: tareaGuardado
             });
 
         });
@@ -109,34 +106,32 @@ app.put('/:id', mdAutenticacion.verificaToken, (req, res) => {
 
 
 //=============================
-// Creacion de un nuevo usuario
+// Creacion de un nuevo tarea
 //=============================
 
 app.post('/', mdAutenticacion.verificaToken, (req, res) => {
 
     var body = req.body;
 
-    var usuario = new Usuario({
+    var tarea = new Tarea({
         nombre: body.nombre,
-        email: body.email,
-        password: bcrypt.hashSync(body.password, 10),
-        img: body.img,
-        role: body.role
+        descripcion: body.descripcion,
+        usuario: req.usuario._id,
+        proyecto: body.proyecto
     });
 
-    usuario.save((err, usuarioGuardado) => {
+    tarea.save((err, tareaGuardado) => {
 
         if (err) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'Error crear usuario',
+                mensaje: 'Error crear tarea',
                 errors: err
             });
         }
         res.status(201).json({
             ok: true,
-            usuario: usuarioGuardado,
-            usuariotoken: req.usuario
+            tarea: tareaGuardado
         });
 
     });
@@ -146,33 +141,33 @@ app.post('/', mdAutenticacion.verificaToken, (req, res) => {
 });
 
 //=============================
-// Borrar un usuario por el id
+// Borrar un tarea por el id
 //=============================
 
 app.delete('/:id', mdAutenticacion.verificaToken, (req, res) => {
 
     var id = req.params.id;
-    Usuario.findByIdAndDelete(id, (err, usuarioBorrado) => {
+    Tarea.findByIdAndDelete(id, (err, tareaBorrado) => {
 
         if (err) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'Error al borrar  usuario',
+                mensaje: 'Error al borrar tarea',
                 errors: err
             });
         }
 
-        if (!usuarioBorrado) {
+        if (!tareaBorrado) {
             return res.status(400).json({
                 ok: false,
-                mensaje: 'No existe un usuario con ese ID',
-                errors: { message: 'No existe un usuario con ese ID' }
+                mensaje: 'No existe un tarea con ese ID',
+                errors: { message: 'No existe un tarea con ese ID' }
             });
         }
 
         res.status(200).json({
             ok: true,
-            usuario: usuarioBorrado
+            tarea: tareaBorrado
         });
 
 
